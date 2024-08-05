@@ -1,0 +1,57 @@
+#!/bin/bash
+
+# Check if correct number of arguments is provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <option> <value>"
+    exit 1
+fi
+
+option=$1
+value=$2
+
+modify_timer() {
+    if [ "$value" -lt 1 ]; then
+        echo "Invalid value for timer"
+        exit 1
+    fi
+    # Changes the line scrape_interval: XXs to scrape_interval: $value with s
+    sed -i "s/scrape_interval: [0-9]*s/scrape_interval: ${value}s/g" ./prometheus.yml
+    sed -i "s/condor_diagnostics -w [0-9]\+ \\\\/condor_diagnostics -w ${value} \\\\/g" ./start
+}
+
+modify_path() {
+    # Changes the volume bind to the new path
+    sed -i "s|.*:\/metrics\/metrics.prom|      - ${value}:\/metrics\/metrics.prom|g" ./docker-compose.yml
+    sed -i "s|--prometheus .*|--prometheus ${value} \\\\|g" ./start
+}
+
+set_poll() {
+    if [ "$value" == "true" ]; then
+        export POLL=true
+    else
+        export POLL=
+    fi
+}
+
+case $option in 
+    timer)
+        modify_timer
+        echo "Timer set to $value"
+        ;;
+    path)
+        modify_path
+        echo "Path set to $value"
+        ;;
+    poll)
+        if [ "$value" != "true" ] && [ "$value" != "false" ]; then
+            echo "Invalid value for poll"
+            exit 1
+        fi
+        set_poll
+        echo "Polling set to $value"
+        ;;
+    *)
+        echo "Invalid option"
+        exit 1
+        ;;
+esac
